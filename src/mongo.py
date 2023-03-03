@@ -30,7 +30,7 @@ class UserDatabase:
 
     async def find_all(self, dnd: bool = False) -> list[int]:
         user_configs = self.__fetch_collection()
-        users_cursor = user_configs.find({"notify_status": True})
+        users_cursor = user_configs.find({"dnd": dnd})
         user_list = await users_cursor.to_list(None)
         user_id_list = [user["user_id"] for user in user_list]
         return user_id_list
