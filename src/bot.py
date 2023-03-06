@@ -1,3 +1,4 @@
+import asyncio.exceptions
 import datetime
 import html
 import json
@@ -47,7 +48,14 @@ async def help_(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def send_prices(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = create_formatted_text(await get_prices())
+    prices = await get_prices()
+
+    if prices is None:
+        await context.bot.send_message(chat_id=update.effective_user.id,
+                                       text="Borsa sunucularına ulaşılamıyor, lütfen daha sonra tekrar deneyin.")
+        return
+
+    message = create_formatted_text(prices)
     await context.bot.send_message(chat_id=update.effective_user.id,
                                    text=message,
                                    parse_mode=telegram.constants.ParseMode.HTML)
@@ -119,15 +127,22 @@ async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Task
 async def check_prices(context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = create_formatted_text(await get_prices())
+    prices = await get_prices()
+
+    if prices is None:
+        return
+
     user_list = await USER_DB.find_all(dnd=False)
+    message = create_formatted_text(prices)
 
     for target in user_list:
         try:
-            await context.bot.send_message(chat_id=target, text=message, parse_mode=telegram.constants.ParseMode.HTML)
+            await context.bot.send_message(chat_id=target, text=message,
+                                           parse_mode=telegram.constants.ParseMode.HTML)
             logger.info(f"Message has been sent to {target}")
         except telegram.error.Forbidden:
             logger.info(f"FORBIDDEN: Message couldn't be delivered to {target}")
+            continue
         except telegram.error.BadRequest:
             logger.info(f"FORBIDDEN: Message couldn't be delivered to {target}")
             continue
@@ -156,13 +171,17 @@ async def err_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 # Utils
-async def get_prices() -> list[dict]:
-    async with aiohttp.ClientSession() as session:
-        async with session.get("http://www.ktb.org.tr:9595/Home/GetGrnWebAnlikFiyat") as resp:
-            product_list: list[dict] = await resp.json()
-            for product in product_list:
-                product['_id'] = product.pop('urun')
-            return product_list
+async def get_prices() -> list[dict] | None:
+    try:
+        async with aiohttp.ClientSession(read_timeout=3) as session:
+            async with session.get("http://www.ktb.org.tr:9595/Home/GetGrnWebAnlikFiyat") as resp:
+                product_list: list[dict] = await resp.json()
+                for product in product_list:
+                    product['_id'] = product.pop('urun')
+                return product_list
+    except asyncio.exceptions.TimeoutError:
+        logger.info("Connection timeout for market servers")
+        return None
 
 
 def create_formatted_text(product_list: list[dict]) -> str:
