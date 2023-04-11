@@ -35,7 +35,7 @@ class UserDatabase:
         user_id_list = [user["user_id"] for user in user_list]
         return user_id_list
 
-    async def toggle_notify_status(self, user_id: int) -> None:
+    async def toggle_dnd(self, user_id: int) -> None:
         collection = self.__fetch_collection()
         await collection.find_one_and_update({'user_id': user_id},
-                                             [{'$set': {'notify_status': {'$not': '$notify_status'}}}])
+                                             [{'$set': {'dnd': {'$not': '$dnd'}}}])

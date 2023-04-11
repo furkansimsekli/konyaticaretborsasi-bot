@@ -66,7 +66,7 @@ async def disable_notifier(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     user = await USER_DB.find(user_id)
 
     if not user["dnd"]:
-        await USER_DB.toggle_notify_status(user_id)
+        await USER_DB.toggle_dnd(user_id)
         await context.bot.send_message(chat_id=user_id,
                                        text="Bundan sonra otomatik fiyat bildirimi göndermeyeceğim. Tekrardan açmak "
                                             "için /bildirim_ac komutunu kullan!")
@@ -81,7 +81,7 @@ async def enable_notifier(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     user = await USER_DB.find(user_id)
 
     if user["dnd"]:
-        await USER_DB.toggle_notify_status(user_id)
+        await USER_DB.toggle_dnd(user_id)
         await context.bot.send_message(chat_id=user_id,
                                        text="Tamamdır, seni de abone listesine ekledim! Bundan sonra günlük mesaj "
                                             "göndereceğim fiyatlar hakkında!")
