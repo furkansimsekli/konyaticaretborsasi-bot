@@ -55,6 +55,11 @@ async def send_prices(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                                        text="Borsa sunucularına ulaşılamıyor, lütfen daha sonra tekrar deneyin.")
         return
 
+    if not prices:
+        await context.bot.send_message(chat_id=update.effective_user.id,
+                                       text="Şu anda fiyat bilgisi bulunmamaktadır.")
+        return
+
     message = create_formatted_text(prices)
     await context.bot.send_message(chat_id=update.effective_user.id,
                                    text=message,
