@@ -120,7 +120,7 @@ async def admin_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = "@konyaticaretborsasi_bot deneyiminden memnunsan geliştiriciye atıştırmalık bir şey alabilirsin!\n\n" \
-              "<b>₺:</b> <code>TR76 0011 1000 0000 0109 8128 40</code>\n" \
+              "<b>₺:</b> <code>TR84 0011 1000 0000 0109 3410 82</code>\n" \
               "<b>$:</b> <code>TR36 0011 1000 0000 0113 1638 43</code>\n" \
               "<b>€:</b> <code>TR68 0011 1000 0000 0113 1638 49</code>\n\n" \
               "Enpara: <code>Furkan Şimşekli</code>"
