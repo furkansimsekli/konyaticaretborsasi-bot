@@ -10,6 +10,7 @@ TELEGRAM_API_KEY: str = config['TELEGRAM_API_KEY']
 
 # MongoDB Connection String
 DB_STRING: str = config['DB_STRING']
+DB_NAME: str = config['DB_NAME']
 
 # Admin Chat ID
 ADMIN_ID: int = config['ADMIN_ID']

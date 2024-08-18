@@ -8,31 +8,51 @@ import traceback
 import aiohttp
 import pytz
 import telegram.constants
+from motor.motor_asyncio import AsyncIOMotorClient
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-from .config import TELEGRAM_API_KEY, DB_STRING, WEBHOOK_CONNECTED, WEBHOOK_URL, PORT, LOGGER_CHAT_ID, ADMIN_ID, \
-    PRICE_CHECK_HOURS, PRICE_CHECK_MINUTES
-from .mongo import UserDatabase
+from .config import (
+    TELEGRAM_API_KEY,
+    DB_STRING,
+    DB_NAME,
+    WEBHOOK_CONNECTED,
+    WEBHOOK_URL,
+    PORT,
+    LOGGER_CHAT_ID,
+    ADMIN_ID,
+    PRICE_CHECK_HOURS,
+    PRICE_CHECK_MINUTES
+)
+from .models import User
 
 # Logging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger()
 
-# Database
-USER_DB = UserDatabase(DB_STRING)
+# Initialize the MongoDB client and database
+client = AsyncIOMotorClient(DB_STRING)
+db = client[DB_NAME]
+User.initialize_collection(db, "users")
 
 
 # Command Handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
-    user = await USER_DB.find(user_id)
+    telegram_user = update.effective_user
+    user = await User.find_one({"user_id": telegram_user.id})
 
     if not user:
-        await USER_DB.new_user(user_id, update.effective_user.first_name, update.effective_user.last_name)
+        new_user = User(user_id=str(telegram_user.id),
+                        platform="Telegram",
+                        first_name=telegram_user.first_name,
+                        last_name=telegram_user.last_name,
+                        username=telegram_user.username,
+                        language=telegram_user.language_code,
+                        dnd=False)
+        await new_user.save()
 
-    await context.bot.send_message(chat_id=update.effective_user.id,
-                                   text="Hoşgeldin! Konya Ticaret Borsasından anlık fiyatları öğrenmek için doğru "
+    await context.bot.send_message(chat_id=telegram_user.id,
+                                   text="Hoş geldin! Konya Ticaret Borsasından anlık fiyatları öğrenmek için doğru "
                                         "yerdesin. /fiyatlar komutu ile fiyatları öğrenebilirsin. Ayrıca ben sana "
                                         "otomatik olarak belirli saatlerde bildirim göndereceğim!\n\n"
                                         "Eğer bu bildirimleri almak istemiyorsan /bildirim_kapat komutunu "
@@ -67,55 +87,64 @@ async def send_prices(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 async def disable_notifier(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
-    user = await USER_DB.find(user_id)
+    telegram_user = update.effective_user
+    user = await User.find_one({"user_id": telegram_user.id})
 
     if not user["dnd"]:
-        await USER_DB.toggle_dnd(user_id)
-        await context.bot.send_message(chat_id=user_id,
+        user.dnd = True
+        user.save()
+        await context.bot.send_message(chat_id=telegram_user.id,
                                        text="Bundan sonra otomatik fiyat bildirimi göndermeyeceğim. Tekrardan açmak "
                                             "için /bildirim_ac komutunu kullan!")
     else:
-        await context.bot.send_message(chat_id=user_id,
+        await context.bot.send_message(chat_id=telegram_user.id,
                                        text="Sana zaten otomatik bir şekilde fiyat tablosunu göndermiyorum. Açmak "
                                             "istiyorsan /bildirim_ac komutunu kullanabilirsin.")
 
 
 async def enable_notifier(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
-    user = await USER_DB.find(user_id)
+    telegram_user = update.effective_user
+    user = await User.find_one({"user_id": telegram_user.id})
 
     if user["dnd"]:
-        await USER_DB.toggle_dnd(user_id)
-        await context.bot.send_message(chat_id=user_id,
+        user.dnd = False
+        user.save()
+        await context.bot.send_message(chat_id=telegram_user.id,
                                        text="Tamamdır, seni de abone listesine ekledim! Bundan sonra günlük mesaj "
                                             "göndereceğim fiyatlar hakkında!")
     else:
-        await context.bot.send_message(chat_id=user_id,
+        await context.bot.send_message(chat_id=telegram_user.id,
                                        text="Sana zaten günlük fiyat tablosunu gönderiyorum. Kapatmak istiyorsan "
                                             "/bildirim_kapat komutunu kullanabilirsin.")
 
 
 async def admin_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
+    telegram_user = update.effective_user
 
-    if user_id != ADMIN_ID:
-        await context.bot.send_message(chat_id=user_id,
+    if telegram_user.id != ADMIN_ID:
+        await context.bot.send_message(chat_id=telegram_user.id,
                                        text="Bu komutu kullanmak için yetkin yok!")
         return
 
     # Message: /<command> <message> --- ignore "/<command>" text, accept only <message> part.
-    admin_message = ' '.join(update.message.text.split()[1:])
-    user_list = await USER_DB.find_all()
+    admin_message = " ".join(update.message.text.split()[1:])
+    user_list = await User.find_all()
+    inactive_user_ids = []
 
-    for target in user_list:
+    for target_user in user_list:
         try:
-            await context.bot.send_message(chat_id=target,
+            await context.bot.send_message(chat_id=target_user.user_id,
                                            text=admin_message,
                                            parse_mode=telegram.constants.ParseMode.HTML)
-            logger.info(f"Message has been sent to {target}")
-        except telegram.error.Forbidden:
-            logger.info(f"FORBIDDEN: Message couldn't be delivered to {target}")
+            logger.info(f"Message has been sent to {target_user.user_id}")
+        except (telegram.error.Forbidden, telegram.error.BadRequest):
+            logger.info(f"Message couldn't be delivered to {target_user.user_id}")
+            inactive_user_ids.append(target_user.user_id)
+            continue
+
+    if inactive_user_ids:
+        await User.update_many(query={"user_id": {"$in": inactive_user_ids}},
+                               update_data={"is_active": False})
 
 
 async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -137,20 +166,24 @@ async def check_prices(context: ContextTypes.DEFAULT_TYPE) -> None:
     if prices is None:
         return
 
-    user_list = await USER_DB.find_all(dnd=False)
+    user_list = await User.find_all({"dnd": False})
+    inactive_user_ids = []
     message = create_formatted_text(prices)
 
-    for target in user_list:
+    for target_user in user_list:
         try:
-            await context.bot.send_message(chat_id=target, text=message,
+            await context.bot.send_message(chat_id=target_user.id,
+                                           text=message,
                                            parse_mode=telegram.constants.ParseMode.HTML)
-            logger.info(f"Message has been sent to {target}")
-        except telegram.error.Forbidden:
-            logger.info(f"FORBIDDEN: Message couldn't be delivered to {target}")
+            logger.info(f"Message has been sent to {target_user.id}")
+        except (telegram.error.Forbidden, telegram.error.BadRequest):
+            logger.info(f"Message couldn't be delivered to {target_user.id}")
+            inactive_user_ids.append(target_user.id)
             continue
-        except telegram.error.BadRequest:
-            logger.info(f"FORBIDDEN: Message couldn't be delivered to {target}")
-            continue
+
+    if inactive_user_ids:
+        await User.update_many(query={"user_id": {"$in": inactive_user_ids}},
+                               update_data={"is_active": False})
 
 
 # Error Handler
