@@ -31,6 +31,15 @@ class MongoModel:
         cls.collection = db[collection_name]
 
     @classmethod
+    async def insert_many(cls, documents: list):
+        if cls.collection is None:
+            raise ValueError("Collection is not initialized. Call 'initialize_collection' first.")
+
+        documents_to_insert = [doc.to_dict() if isinstance(doc, cls) else doc for doc in documents]
+        result = await cls.collection.insert_many(documents_to_insert)
+        return result.inserted_ids
+
+    @classmethod
     async def find_one(cls, query: dict):
         if cls.collection is None:
             raise ValueError("Collection is not initialized. Call 'initialize_collection' first.")
