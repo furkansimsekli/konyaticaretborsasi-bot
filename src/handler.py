@@ -97,7 +97,7 @@ async def enable_notifier(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 async def admin_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     telegram_user = update.effective_user
 
-    if telegram_user.id != config.ADMIN_ID:
+    if telegram_user.id != config.ADMIN_CHAT_ID:
         await context.bot.send_message(chat_id=telegram_user.id,
                                        text="Bu komutu kullanmak için yetkin yok!")
         return

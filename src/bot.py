@@ -7,7 +7,7 @@ from . import config, handler, task
 
 
 def main() -> None:
-    app: Application = Application.builder().token(config.TELEGRAM_API_KEY).build()
+    app: Application = Application.builder().token(config.TELEGRAM_API_TOKEN).build()
 
     app.add_handler(CommandHandler('start', handler.start))
     app.add_handler(CommandHandler('yardim', handler.help_))
@@ -25,9 +25,9 @@ def main() -> None:
         app.job_queue.run_daily(task.check_and_notify_prices, time=datetime.time(hour=hour, minute=minute, tzinfo=tz))
 
     if config.WEBHOOK_CONNECTED:
-        app.run_webhook(listen="0.0.0.0",
+        app.run_webhook(listen=config.WEBHOOK_BIND,
                         port=int(config.PORT),
-                        url_path=config.TELEGRAM_API_KEY,
+                        url_path=config.TELEGRAM_API_TOKEN,
                         webhook_url=config.WEBHOOK_URL)
     else:
         app.run_polling()
