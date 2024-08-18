@@ -20,6 +20,7 @@ class MongoModel:
             query = {"_id": getattr(self, "_id", None)}
 
         existing_document = await self.collection.find_one(query)
+
         if existing_document:
             await self.collection.update_one(query, {"$set": self.to_dict()})
         else:
@@ -35,8 +36,10 @@ class MongoModel:
             raise ValueError("Collection is not initialized. Call 'initialize_collection' first.")
 
         document = await cls.collection.find_one(query)
+
         if document:
             return cls(**document)
+
         return None
 
     @classmethod
@@ -45,14 +48,15 @@ class MongoModel:
             raise ValueError("Collection is not initialized. Call 'initialize_collection' first.")
 
         query = query or {}
+        documents = []
         cursor = cls.collection.find(query)
 
         if sort:
             cursor = cursor.sort(sort)
 
-        documents = []
         async for document in cursor:
             documents.append(cls(**document))
+
         return documents
 
     @classmethod
@@ -61,14 +65,15 @@ class MongoModel:
             raise ValueError("Collection is not initialized. Call 'initialize_collection' first.")
 
         query = query or {}
+        documents = []
         cursor = cls.collection.find(query).skip(skip).limit(limit)
 
         if sort:
             cursor = cursor.sort(sort)
 
-        documents = []
         async for document in cursor:
             documents.append(cls(**document))
+
         return documents
 
     @classmethod
@@ -119,6 +124,8 @@ class MongoModel:
 
         cursor = cls.collection.aggregate(pipeline)
         results = []
+
         async for document in cursor:
             results.append(document)
+
         return results
