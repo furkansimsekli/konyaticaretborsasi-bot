@@ -1,4 +1,9 @@
+from io import BytesIO
+
 import aiohttp
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 
 class Helper:
@@ -50,3 +55,50 @@ class Helper:
             message += "\n\n"
 
         return message
+
+    @staticmethod
+    def generate_price_graph(data: list, days) -> BytesIO:
+        product_data = {}
+
+        for item in data:
+            if item.product_name not in product_data:
+                product_data[item.product_name] = {"dates": [], "prices": []}
+
+            product_data[item.product_name]["dates"].append(item.created_at.date())
+            product_data[item.product_name]["prices"].append(item.average_price)
+
+        plt.figure(figsize=(12, 8))
+
+        # Generate a different color for each product
+        colors = plt.get_cmap("tab20").colors
+        legend_lines = []
+
+        for idx, (product_name, values) in enumerate(product_data.items()):
+            plt.plot(values["dates"],
+                     values["prices"],
+                     marker="o",
+                     linestyle="-",
+                     color=colors[idx % len(colors)],
+                     label=product_name)
+            legend_lines.append(Line2D([0], [0], color=colors[idx % len(colors)], lw=2, label=product_name))
+
+        plt.title(f"Konya Ticaret Borsası Son {days} Günün Fiyat Grafiği")
+        plt.ylabel("Ortalama Fiyat (TL)")
+
+        # Format x-axis dates automatically
+        ax = plt.gca()
+        if days <= 7:
+            ax.xaxis.set_major_formatter(mdates.DateFormatter("%d/%m"))
+        elif days <= 30:
+            ax.xaxis.set_major_formatter(mdates.DateFormatter("%d/%m"))
+        else:
+            ax.xaxis.set_major_formatter(mdates.DateFormatter("%m/%y"))
+
+        plt.legend(handles=legend_lines, loc='upper left', bbox_to_anchor=(1, 1), frameon=False)
+        plt.grid(True)
+
+        buf = BytesIO()
+        plt.savefig(buf, format="PNG", bbox_inches='tight')
+        buf.seek(0)
+        plt.close()
+        return buf
