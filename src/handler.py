@@ -136,16 +136,45 @@ async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def err_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Log the error and send a telegram message to notify the developer.
+
+    Below code belongs to python-telegram-bot examples, furkansimsekli "fixed" the 4096 character limit.
+    Url: https://github.com/python-telegram-bot/python-telegram-bot/blob/master/examples/errorhandlerbot.py
+    """
+
+    # Log the error before we do anything else, so we can see it even if something breaks.
     logger.error(msg="Exception while handling an update:", exc_info=context.error)
+
+    # traceback.format_exception returns the usual python message about an exception, but as a
+    # list of strings rather than a single string, so we have to join them together.
     traceback_list = traceback.format_exception(None, context.error, context.error.__traceback__)
     traceback_string = "".join(traceback_list)
+    traceback_message = f"{html.escape(traceback_string)}"
+
+    # Build the message with some markup and additional information about what happened.
     update_str = update.to_dict() if isinstance(update, Update) else str(update)
-    message = (f"An exception was raised while handling an update\n"
+    ctx_msg = (f"An exception was raised while handling an update\n"
                f"<pre>update = {html.escape(json.dumps(update_str, indent=2, ensure_ascii=False))}</pre>\n\n"
                f"<pre>context.chat_data = {html.escape(str(context.chat_data))}</pre>\n\n"
-               f"<pre>context.user_data = {html.escape(str(context.user_data))}</pre>\n\n"
-               f"<pre>{html.escape(traceback_string)}</pre>")
-
+               f"<pre>context.user_data = {html.escape(str(context.user_data))}</pre>\n\n")
     await context.bot.send_message(chat_id=config.LOGGER_CHAT_ID,
-                                   text=message,
+                                   text=ctx_msg,
                                    parse_mode=telegram.constants.ParseMode.HTML)
+
+    if len(traceback_message) > 4096:
+        tb_msg_list = traceback_message.split("The above exception was the direct cause of the following exception:")
+
+        for traceback_message in tb_msg_list:
+            if len(traceback_message) > 4096:
+                await context.bot.send_message(chat_id=config.LOGGER_CHAT_ID,
+                                               text=f"Traceback is too long!",
+                                               parse_mode=telegram.constants.ParseMode.HTML)
+            else:
+                await context.bot.send_message(chat_id=config.LOGGER_CHAT_ID,
+                                               text=f"<pre>{traceback_message}</pre>",
+                                               parse_mode=telegram.constants.ParseMode.HTML)
+    else:
+        await context.bot.send_message(chat_id=config.LOGGER_CHAT_ID,
+                                       text=f"<pre>{traceback_message}</pre>",
+                                       parse_mode=telegram.constants.ParseMode.HTML)
