@@ -2,13 +2,14 @@ import asyncio
 import html
 import json
 import traceback
+from datetime import datetime, timedelta
 
 import telegram
 from telegram import Update
 from telegram.ext import ContextTypes
 
 from . import config
-from .app import User, logger
+from .app import PriceRecord, User, logger
 from .utils import Helper
 
 
@@ -28,15 +29,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     await context.bot.send_message(chat_id=str(telegram_user.id),
                                    text="Hoş geldin! Konya Ticaret Borsasından anlık fiyatları öğrenmek için doğru "
-                                        "yerdesin. /fiyatlar komutu ile fiyatları öğrenebilirsin. Ayrıca ben sana "
-                                        "otomatik olarak belirli saatlerde bildirim göndereceğim!\n\n"
-                                        "Eğer bu bildirimleri almak istemiyorsan /bildirim_kapat komutunu "
-                                        "kullanabilirsin!")
+                                        "yerdesin. /fiyatlar komutu ile fiyatları öğrenebilirsin.\n\n"
+                                        "Daha fazla komut için /yardim 'a göz unutma!")
 
 
 async def help_(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await context.bot.send_message(chat_id=update.effective_user.id,
                                    text="/fiyatlar - Anlık fiyat tablosu\n"
+                                        "/son_7_gun - Son 7 güne ait ortalama fiyat grafiği\n"
+                                        "/son_15_gun - Son 15 güne ait ortalama fiyat grafiği\n"
+                                        "/son_30_gun - Son 30 güne ait ortalama fiyat grafiği\n"
                                         "/bildirim_kapat - Otomatik bildirimleri kapat\n"
                                         "/bildirim_ac - Otomatik bildirimleri aç\n"
                                         "/bagis - Geliştiriciye bağış yap")
@@ -60,6 +62,32 @@ async def send_prices(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await context.bot.send_message(chat_id=update.effective_user.id,
                                    text=message,
                                    parse_mode=telegram.constants.ParseMode.HTML)
+
+
+async def send_price_graph(update: Update, context: ContextTypes.DEFAULT_TYPE, days: int):
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    price_data = await PriceRecord.find_all(query={"created_at": {"$gte": start_date, "$lte": end_date}},
+                                            sort=[("created_at", 1)])
+
+    if not price_data:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="No price data available.")
+        return
+
+    graph_image = Helper.generate_price_graph(price_data, days)
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=graph_image)
+
+
+async def last_7_days(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await send_price_graph(update, context, days=7)
+
+
+async def last_15_days(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await send_price_graph(update, context, days=15)
+
+
+async def last_30_days(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await send_price_graph(update, context, days=30)
 
 
 async def disable_notifier(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

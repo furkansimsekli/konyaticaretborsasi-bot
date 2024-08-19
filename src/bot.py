@@ -9,9 +9,12 @@ from . import config, handler, task
 def main() -> None:
     app: Application = Application.builder().token(config.TELEGRAM_API_TOKEN).build()
 
-    app.add_handler(CommandHandler('start', handler.start))
-    app.add_handler(CommandHandler('yardim', handler.help_))
+    app.add_handler(CommandHandler("start", handler.start))
+    app.add_handler(CommandHandler("yardim", handler.help_))
     app.add_handler(CommandHandler("fiyatlar", handler.send_prices))
+    app.add_handler(CommandHandler("son_7_gun", handler.last_7_days))
+    app.add_handler(CommandHandler("son_15_gun", handler.last_15_days))
+    app.add_handler(CommandHandler("son_30_gun", handler.last_30_days))
     app.add_handler(CommandHandler("bildirim_kapat", handler.disable_notifier))
     app.add_handler(CommandHandler("bildirim_ac", handler.enable_notifier))
     app.add_handler(CommandHandler("admin_duyuru", handler.admin_announcement))
