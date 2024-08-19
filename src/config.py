@@ -1,13 +1,14 @@
 import os
 
-import toml
+import tomllib
 
 config_path = os.environ.get("CONFIG_PATH")
 
 if config_path is None:
     raise ValueError("CONFIG_PATH environment variable is not set")
 
-config = toml.load(config_path)
+with open(config_path, "rb") as f:
+    config = tomllib.load(f)
 
 TELEGRAM_API_TOKEN: str = config.get("TELEGRAM_API_TOKEN")
 MONGODB_URI: str = config.get("MONGODB_URI", "mongodb://localhost:27017")
