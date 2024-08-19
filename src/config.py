@@ -17,9 +17,10 @@ DATABASE_NAME: str = config.get("DATABASE_NAME", "ktb-db-test")
 ADMIN_CHAT_ID: int = config.get("ADMIN_CHAT_ID")
 LOGGER_CHAT_ID: int = config.get("LOGGER_CHAT_ID")
 
-# Time Configurations for the Price Checking Task
+# Time Configurations for the Price Checking Task and Price Updating Task
 PRICE_CHECK_HOURS: list[int] = config.get("PRICE_CHECK_HOURS", [10, 15])
 PRICE_CHECK_MINUTES: list[int] = config.get("PRICE_CHECK_MINUTES", [0, 0])
+PRICE_UPDATE_INTERVAL: int = config.get("PRICE_UPDATE_INTERVAL", 3600)
 
 # Polling or Webhook?
 WEBHOOK_CONNECTED: bool = config.get("WEBHOOK_CONNECTED", False)

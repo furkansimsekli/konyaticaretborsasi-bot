@@ -4,7 +4,7 @@ import telegram
 from telegram.ext import ContextTypes
 
 from . import config
-from .app import User, logger
+from .app import PriceRecord, User, logger
 from .utils import Helper
 
 
@@ -41,3 +41,32 @@ async def check_and_notify_prices(context: ContextTypes.DEFAULT_TYPE) -> None:
     if inactive_user_ids:
         await User.update_many(query={"user_id": {"$in": inactive_user_ids}},
                                update_data={"is_active": False})
+
+
+async def update_prices(context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        records = await Helper.fetch_prices()
+    except asyncio.exceptions.TimeoutError:
+        logger.error("Can't access to market servers at the moment.")
+        await context.bot.send_message(chat_id=config.LOGGER_CHAT_ID,
+                                       text="Borsa sunucularına ulaşılamıyor.")
+        return
+
+    if not records:
+        logger.warn("There isn't any price information at the market.")
+        await context.bot.send_message(chat_id=config.LOGGER_CHAT_ID,
+                                       text="Şu anda fiyat bilgisi bulunmamaktadır.")
+        return
+
+    price_records = []
+
+    for record in records:
+        product = PriceRecord(product_name=record["urun"],
+                              average_price=record["ort"],
+                              max_price=record["max"],
+                              min_price=record["min"],
+                              quantity=record["adet"])
+        price_records.append(product)
+
+    await PriceRecord.insert_many(price_records)
+    logger.info("Market data has been updated on database")

@@ -20,9 +20,14 @@ def main() -> None:
 
     tz = pytz.timezone("Europe/Istanbul")
 
+    app.job_queue.run_repeating(callback=task.update_prices,
+                                interval=config.PRICE_UPDATE_INTERVAL,
+                                first=5)
+
     for i in range(len(config.PRICE_CHECK_HOURS)):
         hour, minute = config.PRICE_CHECK_HOURS[i], config.PRICE_CHECK_MINUTES[i]
-        app.job_queue.run_daily(task.check_and_notify_prices, time=datetime.time(hour=hour, minute=minute, tzinfo=tz))
+        app.job_queue.run_daily(callback=task.check_and_notify_prices,
+                                time=datetime.time(hour=hour, minute=minute, tzinfo=tz))
 
     if config.WEBHOOK_CONNECTED:
         app.run_webhook(listen=config.WEBHOOK_BIND,

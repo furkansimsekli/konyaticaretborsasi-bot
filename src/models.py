@@ -17,15 +17,15 @@ class User(MongoModel):
                          username=username, language=language, is_active=is_active, **kwargs)
 
 
-class Product(MongoModel):
+class PriceRecord(MongoModel):
     def __init__(
             self,
-            product_id: int,
-            name: str,
-            price: float,
-            category: str,
-            available: bool = True,
+            product_name: str,
+            average_price: float,
+            max_price: float,
+            min_price: float,
+            quantity: int,
             **kwargs
     ):
-        super().__init__(product_id=product_id, name=name, price=price, category=category, available=available,
-                         **kwargs)
+        super().__init__(product_name=product_name, average_price=average_price, max_price=max_price,
+                         min_price=min_price, quantity=quantity, **kwargs)

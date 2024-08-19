@@ -28,8 +28,12 @@ def validate():
     if not config.PRICE_CHECK_MINUTES:
         print("WARNING: You didn't configure PRICE_CHECK_MINUTES, there won't be scheduled jobs to notify users!")
 
-    elif len(config.PRICE_CHECK_HOURS) != len(config.PRICE_CHECK_MINUTES):
+    if len(config.PRICE_CHECK_HOURS) != len(config.PRICE_CHECK_MINUTES):
         print("ERROR: Please make sure time configurations are correct. Hours and minutes list must be same size!")
+        exit(-1)
+
+    if not config.PRICE_UPDATE_INTERVAL:
+        print("ERROR: Please configure PRICE_UPDATE_INTERVAL")
         exit(-1)
 
     if config.WEBHOOK_CONNECTED:
