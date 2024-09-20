@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 
 import telegram
 from telegram.ext import ContextTypes
@@ -47,7 +48,7 @@ async def update_prices(context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         records = await Helper.fetch_prices()
     except asyncio.exceptions.TimeoutError:
-        logger.error("Can't access to market servers at the moment.")
+        logger.error("Can't access the market servers at the moment.")
         await context.bot.send_message(chat_id=config.LOGGER_CHAT_ID,
                                        text="Borsa sunucularına ulaşılamıyor.")
         return
@@ -58,7 +59,14 @@ async def update_prices(context: ContextTypes.DEFAULT_TYPE) -> None:
                                        text="Şu anda fiyat bilgisi bulunmamaktadır.")
         return
 
-    price_records = []
+    product_names = [record["urun"] for record in records]
+    today = datetime.now().date()
+    existing_records = await PriceRecord.find_all({
+        "product_name": {"$in": product_names},
+        "created_at": {"$gte": today}
+    })
+    object_ids_to_delete = [record._id for record in existing_records]
+    price_records_to_save = []
 
     for record in records:
         product = PriceRecord(product_name=record["urun"],
@@ -66,7 +74,11 @@ async def update_prices(context: ContextTypes.DEFAULT_TYPE) -> None:
                               max_price=record["max"],
                               min_price=record["min"],
                               quantity=record["adet"])
-        price_records.append(product)
+        price_records_to_save.append(product)
 
-    await PriceRecord.insert_many(price_records)
-    logger.info("Market data has been updated on database")
+    await PriceRecord.insert_many(price_records_to_save)
+    logger.info("New market data has been inserted into the database.")
+
+    if object_ids_to_delete:
+        await PriceRecord.delete_many({"_id": {"$in": object_ids_to_delete}})
+        logger.info("Old price records have been deleted from the database.")
