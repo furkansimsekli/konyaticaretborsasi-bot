@@ -142,33 +142,30 @@ async def enable_notifier(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                                             "/bildirim_kapat komutunu kullanabilirsin.")
 
 
-async def admin_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def admin_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     telegram_user = update.effective_user
 
     if telegram_user.id != config.ADMIN_CHAT_ID:
         await context.bot.send_message(chat_id=telegram_user.id,
                                        text="Bu komutu kullanmak için yetkin yok!")
-        return
+        return -1
 
-    # Message: /<command> <message> --- ignore "/<command>" text, accept only <message> part.
-    admin_message = " ".join(update.message.text.split()[1:])
-    user_list = await User.find_all({"platform": "Telegram"})
-    inactive_user_ids = []
+    message = ("Lütfen şimdi iletmek istediğin mesajı yaz ve sonrasında bana gönder. "
+               "Ah bi saniye, medya da gönderebilirsin patron!\n\n"
+               "Sohbeti şimdi bitirmek istersen /bitti komutunu kullanabilirsin.")
+    await context.bot.send_message(chat_id=telegram_user.id,
+                                   text=message)
+    return 1
 
-    for target_user in user_list:
-        try:
-            await context.bot.send_message(chat_id=target_user.user_id,
-                                           text=admin_message,
-                                           parse_mode=telegram.constants.ParseMode.HTML)
-            logger.info(f"Message has been sent to {target_user.user_id}")
-        except (telegram.error.Forbidden, telegram.error.BadRequest):
-            logger.info(f"Message couldn't be delivered to {target_user.user_id}")
-            inactive_user_ids.append(target_user.user_id)
-            continue
 
-    if inactive_user_ids:
-        await User.update_many(query={"user_id": {"$in": inactive_user_ids}},
-                               update_data={"is_active": False})
+async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user_id = update.effective_user.id
+    message = "Tamam şşşş, sohbet bitti!"
+
+    if update.message.entities[0].type == 'bot_command':
+        await context.bot.send_message(chat_id=user_id, text=message)
+
+    return -1
 
 
 async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -181,6 +178,46 @@ async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_user.id,
                                    text=message,
                                    parse_mode=telegram.constants.ParseMode.HTML)
+
+
+async def admin_announcement_done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    telegram_user = update.effective_user
+    user_list = await User.find_all({"platform": "Telegram"})
+    active_user_counter = 0
+    inactive_user_ids = []
+
+    for target_user in user_list:
+        try:
+            await context.bot.copy_message(chat_id=target_user.user_id,
+                                           from_chat_id=telegram_user.id,
+                                           message_id=update.message.message_id)
+            active_user_counter += 1
+            logger.info(f"Message has been sent to {target_user.user_id}")
+        except (telegram.error.Forbidden, telegram.error.BadRequest):
+            logger.info(f"Message couldn't be delivered to {target_user.user_id}")
+            inactive_user_ids.append(target_user.user_id)
+            continue
+
+    if inactive_user_ids:
+        await User.update_many(query={"user_id": {"$in": inactive_user_ids}},
+                               update_data={"is_active": False})
+
+    message = (f"Duyuru başarıyla {active_user_counter} kullanıcıya iletildi. "
+               f"{len(inactive_user_ids)} kişi inaktif.")
+    await context.bot.send_message(chat_id=telegram_user.id,
+                                   text=message)
+    return -1
+
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    return -1
+
+
+async def conversation_timeout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    telegram_user = update.effective_user
+    message = "Son sohbetimiz zaman aşımına uğradı, dilersen tekrardan başlatabilirsin."
+    await context.bot.send_message(chat_id=telegram_user.id,
+                                   text=message)
 
 
 async def err_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
