@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import telegram
 from telegram.ext import ContextTypes
@@ -60,10 +60,11 @@ async def update_prices(context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     product_names = [record["urun"] for record in records]
-    today = datetime.now().date()
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
     existing_records = await PriceRecord.find_all({
         "product_name": {"$in": product_names},
-        "created_at": {"$gte": today}
+        "created_at": {"$gte": today_start, "$lt": today_end}
     })
     object_ids_to_delete = [record._id for record in existing_records]
     price_records_to_save = []
