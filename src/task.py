@@ -46,35 +46,35 @@ async def check_and_notify_prices(context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def update_prices(context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
-        records = await Helper.fetch_prices()
+        groups = await Helper.fetch_prices()
     except asyncio.exceptions.TimeoutError:
         logger.error("Can't access the market servers at the moment.")
         await context.bot.send_message(chat_id=config.LOGGER_CHAT_ID,
                                        text="Borsa sunucularına ulaşılamıyor.")
         return
 
-    if not records:
+    if not groups:
         logger.warn("There isn't any price information at the market.")
         await context.bot.send_message(chat_id=config.LOGGER_CHAT_ID,
                                        text="Şu anda fiyat bilgisi bulunmamaktadır.")
         return
 
-    product_names = [record["urun"] for record in records]
+    group_names = list(groups.keys())
     today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     today_end = today_start + timedelta(days=1)
     existing_records = await PriceRecord.find_all({
-        "product_name": {"$in": product_names},
+        "product_name": {"$in": group_names},
         "created_at": {"$gte": today_start, "$lt": today_end}
     })
     object_ids_to_delete = [record._id for record in existing_records]
     price_records_to_save = []
 
-    for record in records:
-        product = PriceRecord(product_name=record["urun"],
-                              average_price=record["ort"],
-                              max_price=record["max"],
-                              min_price=record["min"],
-                              quantity=record["adet"])
+    for name, group in groups.items():
+        product = PriceRecord(product_name=name,
+                              average_price=group["group_avg_price"],
+                              max_price=group["group_max_price"],
+                              min_price=group["group_min_price"],
+                              quantity=group["group_quantity"])
         price_records_to_save.append(product)
 
     await PriceRecord.insert_many(price_records_to_save)
