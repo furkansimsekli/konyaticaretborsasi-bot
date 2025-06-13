@@ -105,6 +105,10 @@ class Helper:
         legend_lines = []
 
         for idx, (product_name, values) in enumerate(product_data.items()):
+            combined = list(zip(values["dates"], values["prices"]))
+            combined.sort(key=lambda x: x[0])
+            sorted_dates, sorted_prices = zip(*combined)
+
             plt.plot(values["dates"],
                      values["prices"],
                      marker="o",
