@@ -22,20 +22,20 @@ class Helper:
         groups = dict()
 
         async with aiohttp.ClientSession(read_timeout=3) as session:
-            async with session.get(f"https://www.ktb.org.tr/api/v1/Alpha.WebPanel/OnlineKullaniciBulten/GetAnlikBulten/{today_date}") as resp:
+            async with session.get(f"https://www.ktb.org.tr/api/v1/Alpha.WebPanel/OnlineKullaniciBulten/GetAnlikBulten/{today_date}", ssl=False) as resp:
                 product_list: list[dict] = await resp.json()
 
                 for product in product_list:
-                    product_name = product["SinifAdi"]
-                    product_quantity = int(product["Miktar"].replace('.', '').replace(',', '.'))
+                    product_name = product["UrunGrubu"]
+                    product_quantity = product["TopMiktar"]
                     product_max_price = float(product["MaxFiyat"].replace(',', '.'))
                     product_min_price = float(product["MinFiyat"].replace(',', '.'))
-                    product_avg_price = float(product["OrtFiyat"].replace(',', '.'))
+                    product_avg_price = float(product["AvgFiyat"].replace(',', '.'))
 
                     group_name = product["GrupAdi"]
-                    group_max_price = float(product["GrupMaxFiyat"].replace(',', '.'))
-                    group_min_price = float(product["GrupMinFiyat"].replace(',', '.'))
-                    group_avg_price = float(product["GrupOrtFiyat"].replace(',', '.'))
+                    group_max_price = product["GrupMaxFiyat"] / 10**4
+                    group_min_price = product["GrupMinFiyat"] / 10**4
+                    group_avg_price = product["GrupOrtFiyat"] / 10**4
 
                     if group_name not in groups:
                         groups[group_name] = {
